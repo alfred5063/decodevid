@@ -2,5 +2,4 @@ numpy
 pandas
 tensorflow
 keras
-matplotlib
 datetime
