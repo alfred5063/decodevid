@@ -291,9 +291,9 @@ for t in range(len(types)):
         final_result = predicting(mainpath, str(types[t]))
     except:
         pass
-    continue
     final_resultdf = pd.DataFrame(final_result)
     final_resultdf.to_csv(currentpath + "\\" + str(types[t]) + "_prediction_result.csv")
+    continue
 
 # Re-assessments
 current_year, current_timestamp, run_date = getdate()
