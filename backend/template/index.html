@@ -1,0 +1,26 @@
+<DOCTYPE html>
+<html>
+<body>
+<div class="rendered-form">
+    <div class="">
+        <h4 access="false" id="control-5798587"><div>deCodeVic Categorization</div></h4></div>
+    <div class="formbuilder-textarea form-group field-textarea-1636975782685">
+        <label for="textarea-1636975782685" class="formbuilder-textarea-label">Text Area</label>
+        <textarea type="textarea" class="form-control" name="textarea-1636975782685" access="false" id="textarea-1636975782685">An online platform to predict probability of Covid-19 infection</textarea>
+    </div>
+    
+    <form action = "{{ url_for('predict') }}" method = "post">
+    <div class="formbuilder-file form-group field-file-1636975872525">
+        <label for="file-1636975872525" class="formbuilder-file-label">File Upload</label>
+        <input type="file" class="form-control" name="file-1636975872525" access="false" multiple="false" id="file-1636975872525">
+    </div>
+    <div class="formbuilder-button form-group field-button-predict">
+        <button type="submit" class="btn btn-primary btn-block btn-large">Predict</button>
+    </div>
+    </form>
+</div>
+
+{{ prediction_text }}
+
+</body>
+</html>
