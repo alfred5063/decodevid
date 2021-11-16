@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify, render_template
 from keras.models import load_model
 
 app = Flask(__name__, template_folder = 'template')
-model = load_model('C:\\Users\\alfred5063\\decodevic\\model\\model.h5')
+model = load_model('\\model\\model.h5')
 
 @app.route('/')
 def home():
