@@ -4,4 +4,4 @@ keras
 datetime
 gunicorn
 flask
-tensorflow
+tensorflow-cpu
