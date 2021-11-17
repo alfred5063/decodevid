@@ -8,10 +8,11 @@ from tensorflow.keras.metrics import categorical_accuracy
 import matplotlib.pyplot as plt
 from tensorflow.keras.preprocessing import image
 import os, time
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 from backend.loading.xray_dataload import *
 from datetime import datetime
+import os.path
 
 
 mainpath = r"D:\ALFRED - Workspace\Xray Images"
@@ -180,22 +181,32 @@ def predicting(mainpath, label):
     else:
         img_path = str(mainpath)
         os.chdir(str(mainpath))
-    cnn = load_model("../model/model.h5")
-    for file in os.listdir():
-        if label != 'None':
-            test_image = image.load_img(str(mainpath + "\\" + label + "\\" + file), target_size = (128, 128))
-        else:
-            test_image = image.load_img(str(mainpath + "\\" + file), target_size = (128, 128))
-        test_image = image.img_to_array(test_image)
-        test_image = np.expand_dims(test_image, axis = 0)
-
-        # CNN Model
+    if os.path.isfile("D:\\ALFRED - Workspace\\Analytics\\model.h5") == True:
         try:
-            result = cnn.predict(test_image)
-            #resultline = img_path + "\\" + str(file), str(file), 'Predictions: %', (np.any(result)*100).astype(float), 'Normal' if np
-            resultline = img_path + "\\" + str(file), str(file), 'Predictions: %', float(result*100), 'Normal' if float(result) < 0.5 else 'Infected'
-            final_result.append(resultline)
-            print(str(file), 'Predictions: %', float(result*100), 'Normal' if float(result) < float(0.5) else 'Infected')
+            cnn = load_model("D:\\ALFRED - Workspace\\Analytics\\model.h5")
+        except Exception as error:
+            print("Model cannot be loaded with error message as: %s", error)
+    else:
+        print("Path to model does not exist.")
+    
+    for file in os.listdir():
+        try:
+            if label != 'None':
+                test_image = image.load_img(str(mainpath + "\\" + label + "\\" + file), target_size = (128, 128))
+            else:
+                test_image = image.load_img(str(mainpath + "\\" + file), target_size = (128, 128))
+            test_image = image.img_to_array(test_image)
+            test_image = np.expand_dims(test_image, axis = 0)
+
+            # CNN Model
+            try:
+                result = cnn.predict(test_image)
+                #resultline = img_path + "\\" + str(file), str(file), 'Predictions: %', (np.any(result)*100).astype(float), 'Normal' if np
+                resultline = img_path + "\\" + str(file), str(file), 'Predictions: %', float(result*100), 'Normal' if float(result) < 0.5 else 'Infected'
+                final_result.append(resultline)
+                print(str(file), 'Predictions: %', float(result*100), 'Normal' if float(result) < float(0.5) else 'Infected')
+            except:
+                pass
         except:
             pass
         continue
@@ -286,8 +297,8 @@ epochdf_final.to_csv(currentpath + "\\Epoch_" + str(e) + "_final_resultdf.csv")
 
 # Run IT
 final_result = []
-types = ['Re-modelling'
-         #'patients_bacterialpneumonia',
+types = [#'Re-modelling',
+         'patients_bacterialpneumonia'
          #'patients_lungopacity',
          #'patients_normal',
          #'patients_pneumonia',
