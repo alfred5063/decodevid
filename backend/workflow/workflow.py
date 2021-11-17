@@ -3,13 +3,13 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from keras.preprocessing.image import ImageDataGenerator
-from keras.metrics import categorical_accuracy
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.metrics import categorical_accuracy
 import matplotlib.pyplot as plt
-from keras.preprocessing import image
+from tensorflow.keras.preprocessing import image
 import os, time
 from keras.models import load_model
-from keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam
 from backend.loading.xray_dataload import *
 from datetime import datetime
 
@@ -180,7 +180,7 @@ def predicting(mainpath, label):
     else:
         img_path = str(mainpath)
         os.chdir(str(mainpath))
-    cnn = load_model("D:\\decodevid\\model\\model.h5")
+    cnn = load_model("../model/model.h5")
     for file in os.listdir():
         if label != 'None':
             test_image = image.load_img(str(mainpath + "\\" + label + "\\" + file), target_size = (128, 128))
@@ -286,12 +286,12 @@ epochdf_final.to_csv(currentpath + "\\Epoch_" + str(e) + "_final_resultdf.csv")
 
 # Run IT
 final_result = []
-types = ['Re-modelling',
-         'patients_bacterialpneumonia',
-         'patients_lungopacity',
-         'patients_normal',
-         'patients_pneumonia',
-         'patients_viralpneumonia'
+types = ['Re-modelling'
+         #'patients_bacterialpneumonia',
+         #'patients_lungopacity',
+         #'patients_normal',
+         #'patients_pneumonia',
+         #'patients_viralpneumonia'
          ]
 for t in range(len(types)):
     try:
