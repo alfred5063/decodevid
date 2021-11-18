@@ -297,12 +297,12 @@ epochdf_final.to_csv(currentpath + "\\Epoch_" + str(e) + "_final_resultdf.csv")
 
 # Run IT
 final_result = []
-types = [#'Re-modelling',
-         'patients_bacterialpneumonia'
-         #'patients_lungopacity',
-         #'patients_normal',
-         #'patients_pneumonia',
-         #'patients_viralpneumonia'
+types = ['Re-modelling',
+         'patients_bacterialpneumonia',
+         'patients_lungopacity',
+         'patients_normal',
+         'patients_pneumonia',
+         'patients_viralpneumonia'
          ]
 for t in range(len(types)):
     try:
