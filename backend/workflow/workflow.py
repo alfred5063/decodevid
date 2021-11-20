@@ -67,13 +67,51 @@ def loadata(mainpath, run_date, data_type):
 
     return currentpath, list, labels, totalfile
 def prep(currentpath, data_type, batch_size):
-    train_datagen = ImageDataGenerator(rescale = 1./255, shear_range = 0.2, zoom_range = 0.2, horizontal_flip = True)
+    # Used for Model 1
+    #train_datagen = ImageDataGenerator(
+    #    rescale = 1./255,
+    #    shear_range = 0.2,
+    #    zoom_range = 0.2,
+    #    horizontal_flip = True,
+    #    rotation_range = 90,
+    #    brightness_range = [0.1, 0.9]
+    #    )
+    
+    # Used for Model 2
+    train_datagen = ImageDataGenerator(
+        rescale = 1/255.,              # normalize pixel values between 0-1
+        brightness_range = [0.1, 0.7], # specify the range in which to decrease/increase brightness
+        width_shift_range = 0.5,       # shift the width of the image 50%
+        rotation_range = 90,           # random rotation by 90 degrees
+        horizontal_flip = True,        # 180 degree flip horizontally
+        vertical_flip = True,          # 180 degree flip vertically
+        validation_split = 0.15        # 15% of the data will be used for validation at end of each epoch
+    )
     training_set = train_datagen.flow_from_directory(str(currentpath + "\\" + data_type[0]),
                                                      target_size = (128, 128),
                                                      batch_size = batch_size,
                                                      class_mode = 'binary')
 
-    test_datagen = ImageDataGenerator(rescale = 1./255, shear_range = 0.2, zoom_range = 0.2, horizontal_flip = True)
+    # Used for Model 1
+    #test_datagen = ImageDataGenerator(
+    #    rescale = 1./255,
+    #    shear_range = 0.2,
+    #    zoom_range = 0.2,
+    #    horizontal_flip = True,
+    #    rotation_range = 90,
+    #    brightness_range = [0.1, 0.9]
+    #    )
+    
+    # Used for Model 2
+    test_datagen = ImageDataGenerator(
+        rescale = 1/255.,              # normalize pixel values between 0-1
+        brightness_range = [0.1, 0.7], # specify the range in which to decrease/increase brightness
+        width_shift_range = 0.5,       # shift the width of the image 50%
+        rotation_range = 90,           # random rotation by 90 degrees
+        horizontal_flip = True,        # 180 degree flip horizontally
+        vertical_flip = True,          # 180 degree flip vertically
+        validation_split = 0.15        # 15% of the data will be used for validation at end of each epoch
+    )
     test_set = test_datagen.flow_from_directory(str(currentpath + "\\" + data_type[1]),
                                                 target_size = (128, 128),
                                                 batch_size = batch_size,
@@ -89,39 +127,37 @@ def modelit(currentpath, mainpath, training_set, test_set, steps_per_epoch, val_
     cnn = tf.keras.models.Sequential()
 
     #### Input Layer ####
-    cnn.add(tf.keras.layers.Conv2D(filters=32, kernel_size=(3,3), padding='same', activation='relu', input_shape=(128, 128, 3)))
+    cnn.add(tf.keras.layers.Conv2D(filters = 32, kernel_size = (3, 3), padding = 'same', activation = 'relu', input_shape = (128, 128, 3)))
 
     #### Convolutional Layers ####
-    cnn.add(tf.keras.layers.Conv2D(32, (3,3), activation='relu'))
-    cnn.add(tf.keras.layers.MaxPooling2D((2,2)))  # Pooling
+    cnn.add(tf.keras.layers.Conv2D(32, (3, 3), activation = 'relu'))
+    cnn.add(tf.keras.layers.MaxPooling2D((2, 2)))  # Pooling
     cnn.add(tf.keras.layers.Dropout(0.2)) # Dropout
 
-    cnn.add(tf.keras.layers.Conv2D(64, (3,3), padding='same', activation='relu'))
-    cnn.add(tf.keras.layers.Conv2D(64, (3,3), activation='relu'))
-    cnn.add(tf.keras.layers.MaxPooling2D((2,2)))
+    cnn.add(tf.keras.layers.Conv2D(64, (3, 3), padding = 'same', activation = 'relu'))
+    cnn.add(tf.keras.layers.Conv2D(64, (3, 3), activation = 'relu'))
+    cnn.add(tf.keras.layers.MaxPooling2D((2, 2)))
     cnn.add(tf.keras.layers.Dropout(0.2))
 
-    cnn.add(tf.keras.layers.Conv2D(128, (3,3), padding='same', activation='relu'))
-    cnn.add(tf.keras.layers.Conv2D(128, (3,3), activation='relu'))
+    cnn.add(tf.keras.layers.Conv2D(128, (3, 3), padding = 'same', activation = 'relu'))
+    cnn.add(tf.keras.layers.Conv2D(128, (3, 3), activation = 'relu'))
     cnn.add(tf.keras.layers.Activation('relu'))
-    cnn.add(tf.keras.layers.MaxPooling2D((2,2)))
+    cnn.add(tf.keras.layers.MaxPooling2D((2, 2)))
     cnn.add(tf.keras.layers.Dropout(0.2))
 
-    cnn.add(tf.keras.layers.Conv2D(512, (5,5), padding='same', activation='relu'))
-    cnn.add(tf.keras.layers.Conv2D(512, (5,5), activation='relu'))
+    cnn.add(tf.keras.layers.Conv2D(512, (5,5), padding = 'same', activation = 'relu'))
+    cnn.add(tf.keras.layers.Conv2D(512, (5,5), activation = 'relu'))
     cnn.add(tf.keras.layers.MaxPooling2D((4,4)))
     cnn.add(tf.keras.layers.Dropout(0.2))
 
     #### Fully-Connected Layer ####
     cnn.add(tf.keras.layers.Flatten())
-    cnn.add(tf.keras.layers.Dense(1024, activation='relu'))
+    cnn.add(tf.keras.layers.Dense(1024, activation = 'relu'))
     cnn.add(tf.keras.layers.Dropout(0.2))
-    #cnn.add(tf.keras.layers.Dense(128, activation='sigmoid')) # Or 'softmax'
     cnn.add(tf.keras.layers.Dense(units = 1 , activation = 'sigmoid')) #Sigmoid is used because we want to predict probability of Covid-19 infected category
 
     optimizer = Adam(lr = 0.00001)
-    cnn.compile(optimizer = optimizer, loss = 'binary_crossentropy', metrics  =['accuracy'])
-    #cnn.compile(optimizer = optimizer, loss = 'categorical_crossentropy', metrics = ['accuracy'])
+    cnn.compile(optimizer = optimizer, loss = 'binary_crossentropy', metrics  = ['accuracy'])
     cnn.summary()
 
     # Modelling
@@ -166,10 +202,10 @@ def modelit(currentpath, mainpath, training_set, test_set, steps_per_epoch, val_
                                         '5': 'keras_score'}, inplace = False)
 
     epochdf.loc[1, 'epoch'] = str(epochs_range)
-    epochdf.loc[1, 'acc'] = str(sum(acc)/len(acc))
-    epochdf.loc[1, 'val_acc'] = str(sum(val_acc)/len(val_acc))
-    epochdf.loc[1, 'loss'] = str(sum(loss)/len(loss))
-    epochdf.loc[1, 'val_loss'] = str(sum(val_loss)/len(val_loss))
+    epochdf.loc[1, 'acc'] = str(acc[-1])
+    epochdf.loc[1, 'val_acc'] = str(val_acc[-1])
+    epochdf.loc[1, 'loss'] = str(loss[-1])
+    epochdf.loc[1, 'val_loss'] = str(val_loss[-1])
     epochdf.loc[1, 'keras_score'] = str(keras_score)
 
     return acc, val_acc, loss, val_loss, keras_score, epochdf
