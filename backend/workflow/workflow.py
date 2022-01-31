@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 from tensorflow.keras.metrics import categorical_accuracy
 import matplotlib.pyplot as plt
 from tensorflow.keras.preprocessing import image
@@ -18,6 +19,9 @@ import os.path
 mainpath = r"D:\ALFRED - Workspace\Xray Images"
 data_type = ['train_dataset', 'test_dataset']
 batch_size = 32
+img_width = 128
+img_height = 128
+img_dim = 3
 
 def getdate():
     try:
@@ -67,53 +71,32 @@ def loadata(mainpath, run_date, data_type):
 
     return currentpath, list, labels, totalfile
 def prep(currentpath, data_type, batch_size):
-    # Used for Model 1
-    #train_datagen = ImageDataGenerator(
-    #    rescale = 1./255,
-    #    shear_range = 0.2,
-    #    zoom_range = 0.2,
-    #    horizontal_flip = True,
-    #    rotation_range = 90,
-    #    brightness_range = [0.1, 0.9]
-    #    )
-    
-    # Used for Model 2
+
     train_datagen = ImageDataGenerator(
         rescale = 1/255.,              # normalize pixel values between 0-1
-        brightness_range = [0.1, 0.7], # specify the range in which to decrease/increase brightness
+        brightness_range = [0.1, 0.9], # specify the range in which to decrease/increase brightness
         width_shift_range = 0.5,       # shift the width of the image 50%
         rotation_range = 90,           # random rotation by 90 degrees
         horizontal_flip = True,        # 180 degree flip horizontally
         vertical_flip = True,          # 180 degree flip vertically
-        validation_split = 0.15        # 15% of the data will be used for validation at end of each epoch
+        validation_split = 0.30        # 15% of the data will be used for validation at end of each epoch
     )
     training_set = train_datagen.flow_from_directory(str(currentpath + "\\" + data_type[0]),
-                                                     target_size = (128, 128),
+                                                     target_size = (img_width, img_height),
                                                      batch_size = batch_size,
                                                      class_mode = 'binary')
 
-    # Used for Model 1
-    #test_datagen = ImageDataGenerator(
-    #    rescale = 1./255,
-    #    shear_range = 0.2,
-    #    zoom_range = 0.2,
-    #    horizontal_flip = True,
-    #    rotation_range = 90,
-    #    brightness_range = [0.1, 0.9]
-    #    )
-    
-    # Used for Model 2
     test_datagen = ImageDataGenerator(
         rescale = 1/255.,              # normalize pixel values between 0-1
-        brightness_range = [0.1, 0.7], # specify the range in which to decrease/increase brightness
+        brightness_range = [0.1, 0.9], # specify the range in which to decrease/increase brightness
         width_shift_range = 0.5,       # shift the width of the image 50%
         rotation_range = 90,           # random rotation by 90 degrees
         horizontal_flip = True,        # 180 degree flip horizontally
         vertical_flip = True,          # 180 degree flip vertically
-        validation_split = 0.15        # 15% of the data will be used for validation at end of each epoch
+        validation_split = 0.30        # 15% of the data will be used for validation at end of each epoch
     )
     test_set = test_datagen.flow_from_directory(str(currentpath + "\\" + data_type[1]),
-                                                target_size = (128, 128),
+                                                target_size = (img_width, img_height),
                                                 batch_size = batch_size,
                                                 class_mode = 'binary')
 
@@ -127,38 +110,46 @@ def modelit(currentpath, mainpath, training_set, test_set, steps_per_epoch, val_
     cnn = tf.keras.models.Sequential()
 
     #### Input Layer ####
-    cnn.add(tf.keras.layers.Conv2D(filters = 32, kernel_size = (3, 3), padding = 'same', activation = 'relu', input_shape = (128, 128, 3)))
+    cnn.add(tf.keras.layers.Conv2D(filters = 32, kernel_size = (3, 3), padding = 'same', activation = 'relu', input_shape = (img_width, img_height, img_dim)))
 
     #### Convolutional Layers ####
     cnn.add(tf.keras.layers.Conv2D(32, (3, 3), activation = 'relu'))
     cnn.add(tf.keras.layers.MaxPooling2D((2, 2)))  # Pooling
     cnn.add(tf.keras.layers.Dropout(0.2)) # Dropout
 
-    cnn.add(tf.keras.layers.Conv2D(64, (3, 3), padding = 'same', activation = 'relu'))
-    cnn.add(tf.keras.layers.Conv2D(64, (3, 3), activation = 'relu'))
+    cnn.add(tf.keras.layers.Conv2D(64, (5, 5), padding = 'same', activation = 'relu'))
+    cnn.add(tf.keras.layers.Conv2D(64, (5, 5), activation = 'relu'))
     cnn.add(tf.keras.layers.MaxPooling2D((2, 2)))
     cnn.add(tf.keras.layers.Dropout(0.2))
 
-    cnn.add(tf.keras.layers.Conv2D(128, (3, 3), padding = 'same', activation = 'relu'))
-    cnn.add(tf.keras.layers.Conv2D(128, (3, 3), activation = 'relu'))
-    cnn.add(tf.keras.layers.Activation('relu'))
+    cnn.add(tf.keras.layers.Conv2D(128, (7, 7), padding = 'same', activation = 'relu'))
+    cnn.add(tf.keras.layers.Conv2D(128, (7, 7), activation = 'relu'))
     cnn.add(tf.keras.layers.MaxPooling2D((2, 2)))
     cnn.add(tf.keras.layers.Dropout(0.2))
-
-    cnn.add(tf.keras.layers.Conv2D(512, (5,5), padding = 'same', activation = 'relu'))
-    cnn.add(tf.keras.layers.Conv2D(512, (5,5), activation = 'relu'))
-    cnn.add(tf.keras.layers.MaxPooling2D((4,4)))
+    
+    cnn.add(tf.keras.layers.Conv2D(512, (9, 9), padding = 'same', activation = 'relu'))
+    cnn.add(tf.keras.layers.Conv2D(512, (9, 9), activation = 'relu'))
+    cnn.add(tf.keras.layers.MaxPooling2D((2, 2)))
     cnn.add(tf.keras.layers.Dropout(0.2))
 
     #### Fully-Connected Layer ####
     cnn.add(tf.keras.layers.Flatten())
-    cnn.add(tf.keras.layers.Dense(1024, activation = 'relu'))
+    cnn.add(tf.keras.layers.Dense(1026, activation = 'relu'))
     cnn.add(tf.keras.layers.Dropout(0.2))
     cnn.add(tf.keras.layers.Dense(units = 1 , activation = 'sigmoid')) #Sigmoid is used because we want to predict probability of Covid-19 infected category
 
-    optimizer = Adam(lr = 0.00001)
+    optimizer = Adam(lr = 0.000001)
     cnn.compile(optimizer = optimizer, loss = 'binary_crossentropy', metrics  = ['accuracy'])
+    
+    # Saves Keras model after each epoch
+    checkpointer = ModelCheckpoint(filepath = 'D:\\decodevid\\model\\model.h5',
+                                   verbose = 1,
+                                   save_best_only = True)
     cnn.summary()
+    
+    # Early stopping to prevent overtraining and to ensure decreasing validation lose
+    early_stop = EarlyStopping(monitor = 'val_loss', patience = 10, restore_best_weights = True, mode = 'min')
+
 
     # Modelling
     history = cnn.fit(training_set,
@@ -166,6 +157,7 @@ def modelit(currentpath, mainpath, training_set, test_set, steps_per_epoch, val_
                       steps_per_epoch = steps_per_epoch,
                       validation_data = test_set,
                       validation_steps = val_steps,
+                      callbacks=[early_stop, checkpointer],
                       verbose = True)
     cnn.save("D:\\decodevid\\model\\model.h5")
 
@@ -321,12 +313,12 @@ def rgb_analysis(dir, coviddata):
 current_year, current_timestamp, run_date = getdate()
 currentpath, list, labels, totalfile = loadata(mainpath, run_date, data_type)
 training_set, test_set, steps_per_epoch, val_steps = prep(currentpath, data_type, batch_size)
-e = 5
+e = 10
 epochdf_final = pd.DataFrame()
-while e <= 5:
+while e <= 100:
     acc, val_acc, loss, val_loss, keras_score, epochdf = modelit(currentpath, mainpath, training_set, test_set, steps_per_epoch, val_steps, e)
     epochdf_final = epochdf_final.append(epochdf, ignore_index = True)
-    e += 5
+    e += 1
 epochdf_final = epochdf_final.reset_index()
 epochdf_final = epochdf_final.drop(columns = {'index'}).drop_duplicates(subset = None, keep = 'first', inplace = False)
 epochdf_final.to_csv(currentpath + "\\Epoch_" + str(e) + "_final_resultdf.csv")
@@ -338,7 +330,8 @@ types = ['Re-modelling',
          'patients_lungopacity',
          'patients_normal',
          'patients_pneumonia',
-         'patients_viralpneumonia'
+         'patients_viralpneumonia',
+         'patients_covid'
          ]
 for t in range(len(types)):
     try:

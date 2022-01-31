@@ -27,9 +27,13 @@ jumfile = pd.DataFrame(columns = {'path','label','totalfile'})
 
 def sum_data(mainpath, labels):
     for l in range(len(labels)):
-        jumfile.loc[l, 'path'] = str(os.path.join(str(mainpath) + "\\" + str(labels[l])))
-        jumfile.loc[l, 'label'] = str(labels[l])
-        jumfile.loc[l, 'totalfile'] = len(glob.glob(os.path.join(str(mainpath) + "\\" + str(labels[l])) + "\\*"))
+        try:
+            jumfile.loc[l, 'path'] = str(os.path.join(str(mainpath) + "\\" + str(labels[l])))
+            jumfile.loc[l, 'label'] = str(labels[l])
+            jumfile.loc[l, 'totalfile'] = len(glob.glob(os.path.join(str(mainpath) + "\\" + str(labels[l])) + "\\*"))
+        except:
+            pass
+        continue
     return jumfile
 
 
@@ -44,11 +48,14 @@ def get_random_data(totalfile, currentpath, labels, data_type):
                 else:
                     totfile = int(totalfile['totalfile'][1]/2)
                 for dtaip in data_type:
-                    for i in range(totfile):
-                        random_index = random.randint(0,len(os.listdir(cur_path))-1)
-                        shutil.copy(str(os.path.join(cur_path, str(os.listdir(cur_path)[random_index]))),
-                                    str(currentpath + "\\" + dtaip + "\\" + label + "\\" + str(os.listdir(cur_path)[random_index])))
-
+                    try:
+                        for i in range(totfile):
+                            random_index = random.randint(0,len(os.listdir(cur_path))-1)
+                            shutil.copy(str(os.path.join(cur_path, str(os.listdir(cur_path)[random_index]))),
+                                        str(currentpath + "\\" + dtaip + "\\" + label + "\\" + str(os.listdir(cur_path)[random_index])))
+                    except:
+                        pass
+                    continue
 
 def gettransf_images(mainpath, currentpath, infected_df, normal_df, patient, run_date):
     
