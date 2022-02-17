@@ -41,12 +41,12 @@ def get_random_data(totalfile, currentpath, labels, data_type):
     data = []
     for rw in range(len(totalfile['totalfile'])):
         cur_path = totalfile['path'][rw]
-        for label in labels:
+        for label in labels:            
             if label in cur_path:
                 if totalfile['totalfile'][0] <= totalfile['totalfile'][1]:
-                    totfile = int(totalfile['totalfile'][0]/2)
+                    totfile = int(totalfile['totalfile'][0] - (totalfile['totalfile'][0] * 0.20))
                 else:
-                    totfile = int(totalfile['totalfile'][1]/2)
+                    totfile = int(totalfile['totalfile'][1] - (totalfile['totalfile'][1] * 0.20))
                 for dtaip in data_type:
                     try:
                         for i in range(totfile):
@@ -56,6 +56,12 @@ def get_random_data(totalfile, currentpath, labels, data_type):
                     except:
                         pass
                     continue
+                
+#import openpyxl
+#path = r'D:\ALFRED - Workspace\Xray Images\Analysis - RGB - Test 2'
+#file = pd.read_excel(str(path) + "\\Normal.xlsx")
+#for f in file['Pictures']:
+#    shutil.copy(str(f), str(path + "\\patients_normal"))
 
 def gettransf_images(mainpath, currentpath, infected_df, normal_df, patient, run_date):
     
