@@ -28,6 +28,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from glob import glob
 from PIL import Image
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import random
 import cv2
 from pathlib import Path
@@ -36,7 +37,6 @@ from warnings import filterwarnings
 # Model
 from tensorflow.keras.models import Sequential, Model, load_model
 from tensorflow.keras.layers import Activation,Dense, Dropout, Flatten, Conv2D, MaxPooling2D,MaxPool2D,AveragePooling2D,GlobalMaxPooling2D
-from tensorflow.keras import backend as K
 from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.utils import to_categorical # convert to one-hot-encoding
@@ -45,6 +45,10 @@ from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras.preprocessing.image import ImageDataGenerator,array_to_img
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
 from tensorflow.keras.metrics import PrecisionAtRecall,Recall
+from tensorflow.keras import backend as K
+K.image_ordering_dim = "tf"
+from tensorflow.keras.applications import VGG16
+#from model_restnet18 import *
 
 # Model Analysis
 from sklearn.metrics import confusion_matrix
@@ -54,24 +58,26 @@ filterwarnings("ignore", category = DeprecationWarning)
 filterwarnings("ignore", category = FutureWarning) 
 filterwarnings("ignore", category = UserWarning)
 
-path = "D:\\ALFRED - Workspace\\Xray Images\\Analysis - RGB - Test 2"
+#path = "D:\\ALFRED - Workspace\\Xray Images\\Analysis - RGB - Test 2\\dataset_1\\Set 1\\train_dataset"
+path = "D:\\ALFRED - Workspace\\Xray Images\\Analysis - RGB - Test 2\\dataset_1\\Set 4\\retest\\train_dataset"
+
 diag_code_dict = {
-    #'Covid': 0,
-    'Covid': 0,
-    'Normal': 1,
-    'ViralPneumonia': 2,
-    'LungOpacity': 3
+    'Covid_Severe': 0,
+    'Covid_Mild': 1,
+    #'Covid_Lieve': 2,
+    #'ViralPneumonia': 2,
+    #'Normal': 3
     }
 
 diag_title_dict = {
-    #'Covid': 'patients_covid_png',
-    'Covid': 'patients_covid_png',
-    'Normal': 'patients_normal_png',
-    'ViralPneumonia': 'patients_viralpneumonia_png',
-    'LungOpacity': 'patients_lungopacity_png'
+    'Covid_Severe': 'patient_covid_severe',
+    'Covid_Mild': 'patient_covid_mild',
+    #'Covid_Lieve': 'patient_covid_lieve',
+    #'ViralPneumonia': 'patient_viralpneumonia',
+    #'Normal': 'patient_normal'
     }
 
-imageid_path_dict = {os.path.splitext(os.path.basename(x))[0]: x for x in glob(os.path.join(path, '*','*.png'))}
+imageid_path_dict = {os.path.splitext(os.path.basename(x))[0]: x for x in glob(os.path.join(path, '*','*.jpeg'))}
 covidData = pd.DataFrame.from_dict(imageid_path_dict, orient = 'index').reset_index()
 covidData.columns = ['image_id','path']
 classes = covidData.image_id.str.split('-').str[0]
@@ -129,7 +135,9 @@ In this section, an EDA on the image data is presented. Here it is investigated 
 and their respective classes. First, let's have a look at a random sample and extract basic information regarding the images:
 '''
 
-covidData['image'] = covidData['path'].map(lambda x: np.asarray(Image.open(x).resize((75, 75))))
+covidData['image'] = covidData['path'].map(lambda x: np.asarray(Image.open(x).resize((80, 80))))
+covidData = pd.DataFrame(covidData)
+covidData.to_csv(path + "\\covidData.csv")
 
 # Image Sampling
 #n_samples = 3
@@ -202,24 +210,27 @@ for i in range(0,samples):
     min_val.append(covidData['image'][i].min())
 
 imageEDA = covidData.loc[:,['image', 'Class','path']]
-imageEDA.to_csv(path + "\\imageEDA.csv")
-
-
 imageEDA['mean'] = mean_val
 imageEDA['stedev'] = std_dev_val
 imageEDA['max'] = max_val
 imageEDA['min'] = min_val
+
 subt_mean_samples = imageEDA['mean'].mean() - imageEDA['mean']
 imageEDA['subt_mean'] = subt_mean_samples
+
+imageEDApd = pd.DataFrame(imageEDA)
+imageEDApd.to_csv(path + "\\imageEDA.csv")
+
 ax = sns.displot(data = imageEDA, x = 'mean', kind="kde");
 plt.title('Images Colour Mean Value Distribution', fontsize = 16,weight = 'bold');
-ax = sns.displot(data = imageEDA, x = 'mean', kind="kde", hue = 'Class');
+ax = sns.displot(data = imageEDA, x = imageEDA['mean'], kind="kde", hue = 'Class');
 plt.title('Images Colour Mean Value Distribution by Class', fontsize = 16,weight = 'bold');
 ax = sns.displot(data = imageEDA, x = 'max', kind="kde", hue = 'Class');
 plt.title('Images Colour Max Value Distribution by Class', fontsize = 16,weight = 'bold');
 ax = sns.displot(data = imageEDA, x = 'min', kind="kde", hue = 'Class');
 plt.title('Images Colour Min Value Distribution by Class', fontsize = 16,weight = 'bold');
-plt.show()
+
+
 
 '''
 - The distribution plot of the whole dataset is very similar to the individual Healthy and Lung Opacity images,
@@ -238,15 +249,18 @@ while Normal patients have a peak at 150 and then another peak around 250
 
 # Continuing our analysis with the Mean values, now we analyse the relantionship between an image Mean value and its Standard Deviation.
 
-plt.figure(figsize=(20,8))
-sns.set(style="ticks", font_scale = 1)
-ax = sns.scatterplot(data=imageEDA, x="mean", y=imageEDA['stedev'], hue = 'Class',alpha=0.8);
-sns.despine(top=True, right=True, left=False, bottom=False)
-plt.xticks(rotation=0,fontsize = 12)
+
+
+plt.figure(figsize = (20,8))
+sns.set(style = "ticks", font_scale = 1)
+ax = sns.scatterplot(data = imageEDA, x = 'mean', y = 'stedev', hue = 'Class', alpha = 0.8);
+sns.despine(top = True, right = True, left = False, bottom = False)
+plt.xticks(rotation = 0,fontsize = 12)
 ax.set_xlabel('Image Channel Colour Mean',fontsize = 14,weight = 'bold')
-ax.set_ylabel('Image Channel Colour Standard Deviation',fontsize = 14,weight = 'bold')
-plt.title('Mean and Standard Deviation of Image Samples', fontsize = 16,weight = 'bold')
-plt.show()
+ax.set_ylabel('Image Channel Colour Standard Deviation',fontsize = 14, weight = 'bold')
+plt.title('Mean and Standard Deviation of Image Samples', fontsize = 16, weight = 'bold');
+
+
 
 '''
 Most images are gathered in the central region of the scatter plot, i.e. there is not much contrast between their pixel values
@@ -267,36 +281,6 @@ for ax in axes:
     ax.set_xlabel('Mean')
 g.fig.tight_layout()
 
-'''
-The Normal (Healthy) samples and Lung Opacity images have a similar scatter, with most of its outliers with higher standard deviation and lower mean values
-Viral Pneumonia images display a more concentrated scatter, perhaps these images have higher similarity to each other than compared to the other classes
-The Covid-19 scatter does not resemble any of the other three classes. It presents more outliers than the other classes, and the points are more scattered across the graph. It could indicate that the images have a higher distinction between each other
-'''
-
-def getImage(path):
-    return OffsetImage(cv2.imread(path),zoom = 0.1)
-
-# frac = 0.1 refers to 10%
-DF_sample = imageEDA.sample(frac=0.1, replace=False, random_state=1)
-paths = DF_sample['path']
-fig, ax = plt.subplots(figsize=(20,8))
-ab = sns.scatterplot(data=DF_sample, x="mean", y='stedev')
-sns.despine(top=True, right=True, left=False, bottom=False)
-ax.set_xlabel('Image Channel Colour Mean',fontsize = 14,weight = 'bold')
-ax.set_ylabel('Image Channel Colour Standard Deviation',fontsize = 14,weight = 'bold')
-plt.title('Mean and Standard Deviation of Image Samples - 10% of Data', fontsize = 16,weight = 'bold');
-for x0, y0, path in zip(DF_sample['mean'], DF_sample['stedev'],paths):
-    ab = AnnotationBbox(getImage(path), (x0, y0), frameon=False)
-    ax.add_artist(ab)
-plt.show()
-
-'''
-Even though we could use our imagination to understand what it meant to have high or low mean values,
-the visualisation above really helps to grasp the concept. Following the X-Axis, the images have a crescent brightness increase as they present higher mean values
-Higher standard deviations are linked to images with high contrast and a more dominant black background
-The outliers at low standard deviation and near the 75 are from Covid-19. It seems like a little data cluster at that region
-More insights could be available by performing the plot by class
-'''
 
 # 3. CNN Model
 '''
@@ -311,76 +295,164 @@ Confusion Matrix, Accuracy, Precision, Recall and F-Score are analysed for final
 
 #add the path general where the classes subpath are allocated
 path = Path("D:\ALFRED - Workspace\Xray Images")
-trainpath = "D:\\ALFRED - Workspace\\Xray Images\\Analysis - RGB - Test 1\\train_dataset"
-testpath = "D:\\ALFRED - Workspace\\Xray Images\Analysis - RGB - Test 1\\test_dataset"
-classes=["patients_covid", "patients_normal"]
+trainpath = "D:\\ALFRED - Workspace\\Xray Images\\Analysis - RGB - Test 2\\dataset_1\\Set 4\\retest\\train_dataset"
+testpath = "D:\\ALFRED - Workspace\\Xray Images\\Analysis - RGB - Test 2\\dataset_1\\Set 4\\retest\\test_dataset"
+
+classes=["patient_covid_mild", "patient_covid_severe"]
+
 num_classes = len(classes)
-batch_size=32
+batch_size = 80
+monitor = 'val_loss'
+patience = 300
+epochs_range = 300
+img_width = 227
+img_height = 227
+Dropt = int(0.30)
+color_mode = 'rgb'
+if color_mode == 'grayscale':
+    img_dim = 1
+elif color_mode == 'rgb':
+    img_dim = 3
+optimizer = Adam(lr = 0.0001)
+metrics = ['accuracy']
+activation = 'softmax'
+loss = 'categorical_crossentropy'
 
 train_datagen = ImageDataGenerator(rescale=1./255,
                                    rotation_range=20,
                                    width_shift_range=0.2,
                                    height_shift_range=0.2,
+                                   horizontal_flip=True
+                                   )
+
+val_datagen = ImageDataGenerator(rescale=1./255,
+                                   rotation_range=20,
+                                   width_shift_range=0.2,
+                                   height_shift_range=0.2,
                                    horizontal_flip=True,
-                                   validation_split=0.2)
-val_datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
+                                   validation_split = 0.991
+                                   )
 
 # load the images to training
 train_gen = train_datagen.flow_from_directory(directory=trainpath, 
-                                              target_size=(299, 299),
+                                              target_size=(img_width, img_height),
                                               class_mode='categorical',
                                               subset='training',
                                               shuffle=True, classes=classes,
                                               batch_size=batch_size, 
-                                              color_mode="grayscale")
+                                              color_mode=color_mode)
 
 # load the images to test
 test_gen = val_datagen.flow_from_directory(directory=testpath, 
-                                              target_size=(299, 299),
+                                              target_size=(img_width, img_height),
                                               class_mode='categorical',
                                               subset='validation',
-                                              shuffle=False, classes=classes,
+                                              shuffle=True, classes=classes,
                                               batch_size=batch_size, 
-                                              color_mode="grayscale")
+                                              color_mode=color_mode)
+
+steps_per_epoch = train_gen.samples // batch_size
+val_steps = test_gen.samples // batch_size
 
 
-# CNN Architecture
-cnn = Sequential()
-cnn.add(Conv2D(32, kernel_size=(3, 3),activation='relu',padding = 'Same',input_shape=(299, 299, 1)))
-cnn.add(BatchNormalization())
-cnn.add(Conv2D(64, (3, 3), activation='relu',padding = 'Same'))
-cnn.add(BatchNormalization())
-cnn.add(AveragePooling2D(pool_size = (2, 2)))
-cnn.add(Dropout(0.25))
-cnn.add(Conv2D(64, (3, 3), activation='relu',padding = 'Same'))
-cnn.add(BatchNormalization())
-cnn.add(Conv2D(64, (3, 3), activation='relu',padding = 'Same'))
-cnn.add(BatchNormalization())
-cnn.add(AveragePooling2D(pool_size=(2, 2)))
-cnn.add(Dropout(0.25))
-cnn.add(Conv2D(64, (3, 3), activation='relu',padding = 'Same'))
-cnn.add(BatchNormalization())
-cnn.add(AveragePooling2D(pool_size = (2, 2)))
-cnn.add(Dropout(0.25))
-cnn.add(Conv2D(64, (3, 3), activation='relu',padding = 'Same'))
-cnn.add(BatchNormalization())
-cnn.add(Conv2D(64, (3, 3), activation='relu',padding = 'Same'))
-cnn.add(BatchNormalization())
-cnn.add(AveragePooling2D(pool_size=(2, 2)))
-cnn.add(Dropout(0.25))
-cnn.add(Flatten())
-cnn.add(BatchNormalization())
-cnn.add(Dense(128, activation='relu'))
-cnn.add(Activation('relu'))
-cnn.add(Dropout(0.25))
-cnn.add(BatchNormalization())
-cnn.add(Dense(num_classes, activation='sigmoid'))
+# VGG-16 Model (CNN Architecture)
+def vgg16(img_width, img_height, img_dim, num_classes, optimizer, metrics, activation, loss):
+    
+    IMAGE_SIZE = [img_width, img_height]  # we will keep the image size as (64,64). You can increase the size for better results. 
+    
+    # loading the weights of VGG16 without the top layer. These weights are trained on Imagenet dataset.
+    vgg = VGG16(input_shape = IMAGE_SIZE + [img_dim], weights = 'imagenet', include_top = False)  # input_shape = (64,64,3) as required by VGG
+    
+    # this will exclude the initial layers from training phase as there are already been trained.
+    for layer in vgg.layers:
+        layer.trainable = False
+    
+    x = Flatten()(vgg.output)
+    x = Dense(128, activation = 'relu')(x)   # we can add a new fully connected layer but it will increase the execution time.
+    x = Dense(num_classes, activation = activation)(x)  # adding the output layer with softmax function as this is a multi label classification problem.
+    model = Model(inputs = vgg.input, outputs = x)
+    model.compile(loss = loss, optimizer = optimizer, metrics = metrics)
+    model.summary()
+    return model
 
 
-optimizer = Adam(lr=0.005, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.01, amsgrad=False)
-metric = PrecisionAtRecall(0.5, num_thresholds=200, name=None, dtype=None)
-#cnn.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=[Recall()])
-cnn.compile(optimizer = optimizer, loss = 'binary_crossentropy', metrics  = ['accuracy'])
+# ResNet-18 Model (CNN Architecture)
+def resnet18(img_width, img_height, img_dim, num_classes, optimizer, metrics, activation, loss):
+    model = ResNet18(num_classes)
+    model.build(input_shape = (None, img_width, img_height, img_dim))
+    model.compile(loss = loss, optimizer = optimizer, metrics = metrics)
+    model.summary()
+    return model
+
+
+# DecodeVid Model (CNN Architecture)
+def decodevid(img_width, img_height, img_dim, Dropt, optimizer, metrics, activation, loss):
+    cnn = Sequential()
+    
+    #### Input Layer 1 ####
+    cnn.add(Conv2D(128, kernel_size = (6, 6), activation = 'relu', padding = 'Same', input_shape = (img_width, img_height, img_dim)))
+    cnn.add(BatchNormalization())
+    cnn.add(AveragePooling2D(pool_size = (2, 2)))
+    
+    #### Convolutional Layer 1 ####
+    cnn.add(Conv2D(128, (3, 3), activation = 'relu', padding = 'Same'))
+    cnn.add(BatchNormalization())
+    cnn.add(AveragePooling2D(pool_size = (2, 2)))
+    #cnn.add(Dropout(Dropt))
+    
+    #### Convolutional Layer 2 ####
+    cnn.add(Conv2D(128, (3, 3), activation = 'relu', padding = 'Same'))
+    cnn.add(BatchNormalization())
+    cnn.add(AveragePooling2D(pool_size = (2, 2)))
+    #cnn.add(Dropout(Dropt))
+    
+    #### Convolutional Layer 3 ####
+    cnn.add(Conv2D(128, (3, 3), activation = 'relu', padding = 'Same'))
+    cnn.add(BatchNormalization())
+    cnn.add(AveragePooling2D(pool_size = (2, 2)))
+    #cnn.add(Dropout(Dropt))
+    
+    #### Convolutional Layer 4 ####
+    cnn.add(Conv2D(96, (3, 3), activation = 'relu', padding = 'Same'))
+    cnn.add(BatchNormalization())
+    cnn.add(AveragePooling2D(pool_size = (2, 2)))
+    #cnn.add(Dropout(Dropt))
+    
+    #### Convolutional Layer 5 ####
+    cnn.add(Conv2D(96, (3, 3), activation = 'relu', padding = 'Same'))
+    cnn.add(BatchNormalization())
+    cnn.add(AveragePooling2D(pool_size = (2, 2)))
+    #cnn.add(Dropout(Dropt))
+    
+    #### Convolutional Layer 6 ####
+    cnn.add(Conv2D(96, (3, 3), activation = 'relu', padding = 'Same'))
+    cnn.add(BatchNormalization())
+    cnn.add(AveragePooling2D(pool_size = (2, 2)))
+    #cnn.add(Dropout(Dropt))
+    
+    #### Fully-Connected Layer 1 ####
+    cnn.add(Flatten())
+    cnn.add(BatchNormalization())
+    cnn.add(Dense(512, activation = 'relu'))
+    cnn.add(Activation('relu'))
+    cnn.add(Dropout(Dropt))
+    
+    #### Final Activation ####
+    cnn.add(Dense(num_classes, activation = activation))
+    
+    optimizer = Adam(lr = 0.0001, beta_1 = 0.9, beta_2 = 0.999, epsilon = None, decay = 0.01, amsgrad = False)
+    #metric = PrecisionAtRecall(0.5, num_thresholds=200, name=None, dtype=None)
+    cnn.compile(optimizer = optimizer, loss = loss, metrics = metrics)
+    #cnn.compile(optimizer = optimizer, loss = 'binary_crossentropy', metrics = ['accuracy'])
+    
+    cnn.summary()
+    return cnn
+
+
+# List all models
+model_vgg16 = vgg16(img_width, img_height, img_dim, num_classes, optimizer, metrics, activation, loss)
+model_decodevid = decodevid(img_width, img_height, img_dim, Dropt, optimizer, metrics, activation, loss)
+model_resnet18 = resnet18(img_width, img_height, img_dim, num_classes, optimizer, metrics, activation, loss)
 
 '''
 Preliminary tests have shown that model performance was very much impacted by the batch size, more than by the learning rate or optimiser used.
@@ -389,42 +461,57 @@ The validation performance oscillates heavily in the initial epochs, i.e. from 0
 Even though I did not use any optimised hyperparameters tuning, the batch_size with a lower learning rate of 0,001 provided satisfactory results.
 '''
 
-# Model settings and training
-# Model Parameters
-epochs = 100
-batch_size = 10
+# Saves Keras model after each epoch
+checkpointer = ModelCheckpoint(filepath = 'D:\\ALFRED - Workspace\\Xray Images\\Analysis - RGB - Test 2\\dataset_1\\Set 1\\models\\model.h5', verbose = True, save_best_only = True)
+    
+# Reduce learning rate
+learning_rate_reduction = ReduceLROnPlateau(monitor = monitor, patience = patience, factor = 0.5, min_lr = 0.0001)
+    
+# Early stopping to prevent overtraining and to ensure decreasing validation lose
+early_stop = EarlyStopping(monitor = monitor, patience = patience, restore_best_weights = True, mode = 'min')
+    
+# Modelling - Decodevid
+history = model_decodevid.fit(train_gen,
+                      epochs = epochs_range,
+                      steps_per_epoch = steps_per_epoch,
+                      validation_data = test_gen,
+                      validation_steps = val_steps,
+                      callbacks=[learning_rate_reduction],
+                      verbose = True)
+cnn.save("D:\\ALFRED - Workspace\\Xray Images\\Analysis - RGB - Test 2\\dataset_1\\Set 1\\models\\model_decodevid.h5", include_optimizer = True)
 
-# Callbacks
-learning_rate_reduction = ReduceLROnPlateau(monitor = 'loss', patience = 10, factor = 0.5, min_lr = 0.00001)
-checkpointer = ModelCheckpoint(filepath = 'D:\\ALFRED - Workspace\\Analytics\\model.h5', verbose = 1, save_best_only = True)
-early_stopping_monitor = EarlyStopping(monitor = 'loss', patience = 10, restore_best_weights = True, mode = 'min')
+# Modelling - VGG-16
+history = model_vgg16.fit(train_gen,
+                      epochs = epochs_range,
+                      steps_per_epoch = steps_per_epoch,
+                      validation_data = test_gen,
+                      validation_steps = val_steps,
+                      callbacks=[learning_rate_reduction],
+                      verbose = True)
+cnn.save("D:\\ALFRED - Workspace\\Xray Images\\Analysis - RGB - Test 2\\dataset_1\\Set 1\\models\\model_vgg16.h5", include_optimizer = True)
+
+# Modelling - ResNet-18
+history = model_resnet18.fit(train_gen,
+                      epochs = epochs_range,
+                      steps_per_epoch = steps_per_epoch,
+                      validation_data = test_gen,
+                      validation_steps = val_steps,
+                      callbacks=[learning_rate_reduction],
+                      verbose = True)
+cnn.save("D:\\ALFRED - Workspace\\Xray Images\\Analysis - RGB - Test 2\\dataset_1\\Set 1\\models\\model_vgg16.h5", include_optimizer = True)
 
 
-# define the checkpoint
-callbacks_list = [learning_rate_reduction, early_stopping_monitor]
-
-#Verbose set to 0 to avoid Notebook visual pollution
-cnn.summary()
-history = cnn.fit(train_gen, steps_per_epoch=len(train_gen) // batch_size, 
-                                validation_steps=len(test_gen) // batch_size, 
-                                validation_data=test_gen,
-                                epochs=epochs,
-                                callbacks=[early_stopping_monitor],
-                                verbose = True)
-
-cnn.save("D:\\ALFRED - Workspace\\Analytics\\model.h5")
-
-
-y_pred = cnn.predict(test_gen)
+y_pred = model_vgg16.predict(test_gen)
+#Plot training and validation Loss
 fig, axarr = plt.subplots(1,3, figsize=(15,5),sharex=True)
 
 sns.set(style="ticks", font_scale = 1)
 sns.despine(top=True, right=True, left=False, bottom=False)
 
 historyDF = pd.DataFrame.from_dict(history.history)
-ax = sns.lineplot(x =historyDF.index, y = history.history['recall'],ax=axarr[0],label="Training");
-ax = sns.lineplot(x =historyDF.index, y = history.history['val_recall'],ax=axarr[0],label="Validation");
-ax.set_ylabel('Recall')
+ax = sns.lineplot(x =historyDF.index, y = history.history['accuracy'],ax=axarr[0],label="Training");
+ax = sns.lineplot(x =historyDF.index, y = history.history['val_accuracy'],ax=axarr[0],label="Validation");
+ax.set_ylabel('Accuracy')
 ax = sns.lineplot(x =historyDF.index, y = history.history['loss'],ax=axarr[1],label="Training");
 ax = sns.lineplot(x =historyDF.index, y = history.history['val_loss'],ax=axarr[1],label="Validation");
 ax.set_ylabel('Loss')
@@ -441,12 +528,9 @@ plt.suptitle('Training Performance Plots',fontsize=16, weight = 'bold');
 fig.tight_layout(pad=3.0)      
 plt.show()
 
-for ax in axes:
-    ax.set_xlabel('Epochs')
-    
-plt.suptitle('Training Performance Plots',fontsize=16, weight = 'bold');
-fig.tight_layout(pad=3.0)      
-plt.show()
+
+
+
 
 '''
 What we know so far
@@ -464,16 +548,16 @@ To provide a general overview of the Model performance, the confusion matrix and
 '''
 
 predictions = np.array(list(map(lambda x: np.argmax(x), y_pred)))
-y_true=test_gen.classes
-CMatrix = pd.DataFrame(confusion_matrix(y_true, predictions), columns=classes, index =classes)
+y_true = test_gen.classes
+CMatrix = pd.DataFrame(confusion_matrix(y_true, predictions), columns = classes, index = classes)
 len(y_true)
-plt.figure(figsize=(12, 6))
+plt.figure(figsize = (12, 6))
 ax = sns.heatmap(CMatrix, annot = True, fmt = 'g' ,vmin = 0, vmax = 250,cmap = 'Blues')
-ax.set_xlabel('Predicted',fontsize = 14,weight = 'bold')
-ax.set_xticklabels(ax.get_xticklabels(),rotation =0);
-ax.set_ylabel('Actual',fontsize = 14,weight = 'bold') 
-ax.set_yticklabels(ax.get_yticklabels(),rotation =0);
-ax.set_title('Confusion Matrix - Test Set',fontsize = 16,weight = 'bold',pad=20);
+ax.set_xlabel('Predicted', fontsize = 14, weight = 'bold')
+ax.set_xticklabels(ax.get_xticklabels(), rotation = 0);
+ax.set_ylabel('Actual', fontsize = 14, weight = 'bold') 
+ax.set_yticklabels(ax.get_yticklabels(), rotation = 0);
+ax.set_title('Confusion Matrix - Test Set', fontsize = 16, weight = 'bold', pad = 20);
 
 
 '''
@@ -492,7 +576,7 @@ results_class = precision_recall_fscore_support(y_true, predictions, average=Non
 metric_columns = ['Precision','Recall', 'F-Score','S']
 all_df = pd.concat([pd.DataFrame(list(results_class)).T,pd.DataFrame(list(results_all)).T])
 all_df.columns = metric_columns
-all_df.index = ['COVID', 'Lung_Opacity', 'Normal', 'Viral Pneumonia','Total']
+#all_df.index = ['Covid_Lieve','Covid_Severe','Covid_Mild','Covid_Lieve','Normal','ViralPneumonia','nan']
 
 def metrics_plot(df,metric):
     plt.figure(figsize=(22,10))
